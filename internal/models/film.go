@@ -44,7 +44,7 @@ const (
 //	}
 //
 //	type Film struct {
-//		ID          int          `json:"id"`
+//		ID          string          `json:"id"`
 //		Title       string       `json:"title"`
 //		Description string       `json:"description"`
 //		ReleaseYear int          `json:"release_year"`
@@ -57,13 +57,12 @@ const (
 //		CrewMembers []CrewMember `json:"crew_members"`
 //	}
 type Film struct {
-	ID          int      `json:"id"`
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	ReleaseYear int      `json:"release_year"`
-	Genres      []string `json:"genres"`
-	Country     string   `json:"country"`
-	Duration    int      `json:"duration"`
-	Budget      int      `json:"budget"`
-	BoxOffice   int      `json:"box_office"`
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	ReleaseYear int    `json:"release_year"`
+	Country     string `json:"country"`
+	Duration    int    `json:"duration"`
+	Budget      int    `json:"budget"`
+	BoxOffice   int    `json:"box_office"`
 }
