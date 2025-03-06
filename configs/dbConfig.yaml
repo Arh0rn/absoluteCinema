@@ -1,0 +1,14 @@
+#host: localhost
+#port: 5432
+#user: postgres
+#password: <somepassword>
+#dbname: absoluteCinema
+#sslmode: disable
+#Now in .env file
+#DB_HOST=
+#DB_PORT=
+#DRIVER_NAME=
+#DB_USER=
+#DB_PASSWORD=
+#DB_NAME=
+#DB_SSLMODE=

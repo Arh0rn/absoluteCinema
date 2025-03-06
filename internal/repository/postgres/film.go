@@ -4,50 +4,43 @@ import (
 	"absoluteCinema/internal/models"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 )
 
-type Repo struct {
+type FilmRepo struct {
 	DB *sql.DB
 }
 
-func NewRepo(db *sql.DB) *Repo {
-	return &Repo{
+func NewRepo(db *sql.DB) *FilmRepo {
+	return &FilmRepo{
 		DB: db,
 	}
 }
 
-//	CreateFilm(film models.Film) error
-//	GetFilms() ([]models.Film, error)
-//	GetFilmByID(id int) (models.Film, error)
-//	UpdateFilmByID(id int, film models.Film) error
-//	DeleteFilmByID(id int) error
-
-//type Film struct {
-//	ID          string   `json:"id"`
-//	Title       string   `json:"title"`
-//	Description string   `json:"description"`
-//	ReleaseYear int      `json:"release_year"`
-//	Country     string   `json:"country"`
-//	Duration    int      `json:"duration"`
-//	Budget      int      `json:"budget"`
-//	BoxOffice   int      `json:"box_office"`
-//}
-
-func (r *Repo) CreateFilm(film models.Film) error {
+func (r *FilmRepo) CreateFilm(film models.Film) error {
 	_, err := r.DB.Exec(
-		"INSERT INTO films (title, description, release_year, country, duration, budget, box_office) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-		film.Title, film.Description, film.ReleaseYear, film.Country, film.Duration, film.Budget, film.BoxOffice)
+		"INSERT INTO films (id, title, description, release_year, country, duration, budget, box_office) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+		film.ID, film.Title, film.Description, film.ReleaseYear, film.Country, film.Duration, film.Budget, film.BoxOffice)
 	if err != nil {
+		slog.Error("CreateFilm error",
+			"level", "repository",
+			"error", err.Error(),
+		)
 		return err
 	}
 	return nil
 }
 
-func (r *Repo) GetFilms() ([]models.Film, error) {
+func (r *FilmRepo) GetFilms() ([]models.Film, error) {
+
 	rows, err := r.DB.Query("SELECT * FROM films")
 	if err != nil {
+		slog.Error("GetFilms query error",
+			"level", "repository",
+			"error", err.Error(),
+		)
 		return nil, err
 	}
 	defer rows.Close()
@@ -55,8 +48,21 @@ func (r *Repo) GetFilms() ([]models.Film, error) {
 	films := make([]models.Film, 0)
 	for rows.Next() {
 		var film models.Film
-		err = rows.Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseYear, &film.Country, &film.Duration, &film.Budget, &film.BoxOffice)
+		err = rows.Scan(
+			&film.ID,
+			&film.Title,
+			&film.Description,
+			&film.ReleaseYear,
+			&film.Country,
+			&film.Duration,
+			&film.Budget,
+			&film.BoxOffice)
 		if err != nil {
+			slog.Error("GetFilms scan error",
+				"level", "repository",
+				"error", err.Error(),
+			)
+
 			return nil, err
 		}
 		films = append(films, film)
@@ -64,16 +70,21 @@ func (r *Repo) GetFilms() ([]models.Film, error) {
 	return films, nil
 }
 
-func (r *Repo) GetFilmByID(id int) (models.Film, error) {
+func (r *FilmRepo) GetFilmByID(id string) (*models.Film, error) {
 	var film models.Film
 	err := r.DB.QueryRow("SELECT * FROM films WHERE id = $1", id).Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseYear, &film.Country, &film.Duration, &film.Budget, &film.BoxOffice)
 	if err != nil {
-		return models.Film{}, err
+		slog.Error("GetFilmByID error",
+			"level", "repository",
+			"error", err.Error(),
+		)
+
+		return nil, err
 	}
-	return film, nil
+	return &film, nil
 }
 
-func (r *Repo) UpdateFilmByID(id int, film models.Film) error {
+func (r *FilmRepo) UpdateFilmByID(id string, film models.FilmInput) error {
 	setValues := make([]string, 0)
 	args := make([]any, 0)
 	argID := 1
@@ -127,14 +138,24 @@ func (r *Repo) UpdateFilmByID(id int, film models.Film) error {
 
 	_, err := r.DB.Exec(query, args...)
 	if err != nil {
+		slog.Error("UpdateFilmByID error",
+			"level", "repository",
+			"query", query,
+			"args", args,
+			"error", err.Error(),
+		)
 		return err
 	}
 	return nil
 }
 
-func (r *Repo) DeleteFilmByID(id int) error {
+func (r *FilmRepo) DeleteFilmByID(id string) error {
 	_, err := r.DB.Exec("DELETE FROM films WHERE id = $1", id)
 	if err != nil {
+		slog.Error("DeleteFilmByID error",
+			"level", "repository",
+			"error", err.Error(),
+		)
 		return err
 	}
 	return nil
