@@ -27,5 +27,5 @@ func (c *Controller) InitRouter() http.Handler {
 	mux.HandleFunc("PATCH /films/{id}", c.FilmController.UpdateFilmByID)
 	mux.HandleFunc("DELETE /films/{id}", c.FilmController.DeleteFilmByID)
 
-	return AddMiddlewares(mux)
+	return mux
 }

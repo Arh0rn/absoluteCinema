@@ -2,10 +2,10 @@ package handlers
 
 import (
 	"absoluteCinema/internal/models"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 )
 
@@ -40,6 +40,8 @@ func NewFilmHandler(service FilmService) *FilmController {
 //	@Failure      500   {string}  string       "Internal Server Error"
 //	@Router       /films/ [post]
 func (c *FilmController) AddFilm(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	var film models.FilmInput
 	if err := json.NewDecoder(r.Body).Decode(&film); err != nil {
 		log.Println(err)
@@ -54,7 +56,6 @@ func (c *FilmController) AddFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(createdFilm); err != nil {
 		log.Println("Error encoding JSON:", err)
@@ -71,6 +72,8 @@ func (c *FilmController) AddFilm(w http.ResponseWriter, r *http.Request) {
 //	@Failure      500   {string}  string       "Internal Server Error"
 //	@Router       /films/ [get]
 func (c *FilmController) GetFilms(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	films, err := c.service.GetAll()
 	if err != nil {
 		log.Println(err)
@@ -78,10 +81,13 @@ func (c *FilmController) GetFilms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(films); err != nil {
-		log.Println("Error encoding JSON:", err)
+		//log.Println("Error encoding JSON:", err)
+		slog.Error("Error encoding JSON",
+			"architecture level", "controller",
+			"error", err.Error(),
+		)
 	}
 }
 
@@ -98,24 +104,35 @@ func (c *FilmController) GetFilms(w http.ResponseWriter, r *http.Request) {
 //	@Failure      500  {string}  string       "Internal Server Error"
 //	@Router       /films/{id} [get]
 func (c *FilmController) GetFilmByID(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	id := r.PathValue("id")
 	if id == "" {
-		log.Println("ID is empty")
+		slog.Error("ID is empty",
+			"architecture level", "controller",
+			"error", models.ErrEmptyID,
+		)
 		http.Error(w, "Bad Request: ID is required", http.StatusBadRequest)
 		return
 	}
 
 	film, err := c.service.GetByID(id)
-	if errors.Is(err, sql.ErrNoRows) {
-		http.Error(w, "Film not found", http.StatusNotFound)
+	if errors.Is(err, models.ErrFilmNotFound) {
+		slog.Error(models.ErrFilmNotFound.Error(),
+			"architecture level", "controller",
+			"id", id,
+		)
+		http.Error(w, models.ErrFilmNotFound.Error(), http.StatusNotFound)
 		return
-	} else if err != nil {
-		log.Println(err)
+	}
+	if err != nil {
+		slog.Error(err.Error(),
+			"architecture level", "controller",
+		)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(film); err != nil {
 		log.Println("Error encoding JSON:", err)
@@ -135,22 +152,40 @@ func (c *FilmController) GetFilmByID(w http.ResponseWriter, r *http.Request) {
 //	@Failure      500   {string}  string  "Internal Server Error"
 //	@Router       /films/{id} [patch]
 func (c *FilmController) UpdateFilmByID(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	id := r.PathValue("id")
 	if id == "" {
-		log.Println("ID is empty")
+		slog.Error("ID is empty",
+			"architecture level", "controller",
+			"error", models.ErrEmptyID,
+		)
 		http.Error(w, "Bad Request: ID is required", http.StatusBadRequest)
 		return
 	}
 
 	var film models.FilmInput
 	if err := json.NewDecoder(r.Body).Decode(&film); err != nil {
-		log.Println(err)
+		slog.Error("Error encoding JSON",
+			"architecture level", "controller",
+			"error", err.Error())
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	if err := c.service.UpdateByID(id, film); err != nil {
-		log.Println(err)
+	err := c.service.UpdateByID(id, film)
+	if errors.Is(err, models.ErrFilmNotFound) {
+		slog.Error(models.ErrFilmNotFound.Error(),
+			"architecture level", "controller",
+			"id", id,
+		)
+		http.Error(w, "No such film by this ID", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		slog.Error(err.Error(),
+			"architecture level", "controller",
+		)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -166,22 +201,38 @@ func (c *FilmController) UpdateFilmByID(w http.ResponseWriter, r *http.Request) 
 //	@Param        id  path  string  true  "Film ID"
 //	@Success      204  "Film deleted successfully"
 //	@Failure      400  {string}  string  "Bad Request: ID is required"
+//	@Failure      404  {string}  string       "Film not found"
 //	@Failure      500  {string}  string  "Internal Server Error"
 //	@Router       /films/{id} [delete]
 func (c *FilmController) DeleteFilmByID(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	id := r.PathValue("id")
 	if id == "" {
-		log.Println("ID is empty")
+		slog.Error("ID is empty",
+			"architecture level", "controller",
+			"error", models.ErrEmptyID,
+		)
 		http.Error(w, "Bad Request: ID is required", http.StatusBadRequest)
 		return
 	}
 
-	if err := c.service.DeleteByID(id); err != nil {
-		log.Println(err)
+	err := c.service.DeleteByID(id)
+	if errors.Is(err, models.ErrFilmNotFound) {
+		slog.Error(models.ErrFilmNotFound.Error(),
+			"architecture level", "controller",
+			"id", id,
+		)
+		http.Error(w, "No such film by this ID", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		slog.Error(err.Error(),
+			"architecture level", "controller",
+		)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNoContent)
 }

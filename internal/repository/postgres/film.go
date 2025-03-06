@@ -25,7 +25,7 @@ func (r *FilmRepo) CreateFilm(film models.Film) error {
 		film.ID, film.Title, film.Description, film.ReleaseYear, film.Country, film.Duration, film.Budget, film.BoxOffice)
 	if err != nil {
 		slog.Error("CreateFilm error",
-			"level", "repository",
+			"architecture level", "repository",
 			"error", err.Error(),
 		)
 		return err
@@ -38,7 +38,7 @@ func (r *FilmRepo) GetFilms() ([]models.Film, error) {
 	rows, err := r.DB.Query("SELECT * FROM films")
 	if err != nil {
 		slog.Error("GetFilms query error",
-			"level", "repository",
+			"architecture level", "repository",
 			"error", err.Error(),
 		)
 		return nil, err
@@ -59,7 +59,7 @@ func (r *FilmRepo) GetFilms() ([]models.Film, error) {
 			&film.BoxOffice)
 		if err != nil {
 			slog.Error("GetFilms scan error",
-				"level", "repository",
+				"architecture level", "repository",
 				"error", err.Error(),
 			)
 
@@ -75,7 +75,7 @@ func (r *FilmRepo) GetFilmByID(id string) (*models.Film, error) {
 	err := r.DB.QueryRow("SELECT * FROM films WHERE id = $1", id).Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseYear, &film.Country, &film.Duration, &film.Budget, &film.BoxOffice)
 	if err != nil {
 		slog.Error("GetFilmByID error",
-			"level", "repository",
+			"architecture level", "repository",
 			"error", err.Error(),
 		)
 
@@ -136,27 +136,61 @@ func (r *FilmRepo) UpdateFilmByID(id string, film models.FilmInput) error {
 	query := fmt.Sprintf("UPDATE films SET %s WHERE id = $%d", setQuery, argID)
 	args = append(args, id)
 
-	_, err := r.DB.Exec(query, args...)
+	result, err := r.DB.Exec(query, args...)
 	if err != nil {
 		slog.Error("UpdateFilmByID error",
-			"level", "repository",
+			"architecture level", "repository",
 			"query", query,
 			"args", args,
 			"error", err.Error(),
 		)
 		return err
 	}
-	return nil
-}
 
-func (r *FilmRepo) DeleteFilmByID(id string) error {
-	_, err := r.DB.Exec("DELETE FROM films WHERE id = $1", id)
+	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		slog.Error("DeleteFilmByID error",
-			"level", "repository",
+		slog.Error("UpdateFilmByID rows affected error",
+			"architecture level", "repository",
 			"error", err.Error(),
 		)
 		return err
 	}
+
+	if rowsAffected == 0 {
+		slog.Warn("No rows affected",
+			"architecture level", "repository",
+		)
+		return models.ErrFilmNotFound
+	}
+
+	return nil
+}
+
+func (r *FilmRepo) DeleteFilmByID(id string) error {
+	result, err := r.DB.Exec("DELETE FROM films WHERE id = $1", id)
+	if err != nil {
+		slog.Error("DeleteFilmByID error",
+			"architecture level", "repository",
+			"error", err.Error(),
+		)
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		slog.Error("DeleteFilmByID rows affected error",
+			"architecture level", "repository",
+			"error", err.Error(),
+		)
+		return err
+	}
+
+	if rowsAffected == 0 {
+		slog.Warn("No rows affected",
+			"architecture level", "repository",
+		)
+		return models.ErrFilmNotFound
+	}
+
 	return nil
 }

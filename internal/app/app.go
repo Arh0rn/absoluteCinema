@@ -82,9 +82,14 @@ func InitRouter(FilmController *handlers.FilmController) *restapi.Controller {
 }
 
 func InitServer(ConConf *configParser.ConnectionConfig, router *restapi.Controller) *http.Server {
+	middlewares := restapi.CreateMiddlewareStack(
+		restapi.LoggingMiddleware,
+		//Add more middlewares here
+	)
+
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":" + strconv.Itoa(ConConf.Port)),
-		Handler: router.InitRouter(),
+		Handler: middlewares(router.InitRouter()),
 	}
 	return srv
 }
