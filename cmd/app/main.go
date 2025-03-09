@@ -16,7 +16,7 @@ func main() {
 	a.Run()
 }
 
-//func main() {
+//func`` main() {
 //	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 //	slog.SetDefault(logger)
 //

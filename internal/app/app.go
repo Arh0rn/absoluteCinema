@@ -8,13 +8,18 @@ import (
 	"absoluteCinema/pkg"
 	"absoluteCinema/pkg/configParser"
 	"absoluteCinema/pkg/database"
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	_ "github.com/lib/pq"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
+	"time"
 )
 
 const (
@@ -22,14 +27,14 @@ const (
 )
 
 type App struct {
-	Logger         *slog.Logger
-	ConConfig      *configParser.ConnectionConfig
-	DB             *sql.DB
-	FilmRepository *postgres.FilmRepo
-	FilmService    *services.FilmServ
-	FilmController *handlers.FilmController
-	Router         *restapi.Controller
-	Server         *http.Server
+	Logger    *slog.Logger
+	ConConfig *configParser.ConnectionConfig
+	Server    *http.Server
+	DB        *sql.DB
+	//FilmRepository *postgres.FilmRepo
+	//FilmService    *services.FilmServ
+	//FilmController *handlers.FilmController
+	//router         http.Handler
 }
 
 func InitLogger() *slog.Logger {
@@ -46,11 +51,11 @@ func LoadEnv() error {
 }
 
 func InitConnectionConfig() (*configParser.ConnectionConfig, error) {
-	ConConf, err := configParser.ParseConnectionConfig(ConConfigPath)
+	conConf, err := configParser.ParseConnectionConfig(ConConfigPath)
 	if err != nil {
 		return nil, err
 	}
-	return ConConf, nil
+	return conConf, nil
 }
 
 func InitDB() (*sql.DB, error) {
@@ -62,34 +67,30 @@ func InitDB() (*sql.DB, error) {
 }
 
 func InitFilmRepository(db *sql.DB) *postgres.FilmRepo {
-	FilmRepository := postgres.NewRepo(db)
-	return FilmRepository
+	filmRepository := postgres.NewRepo(db)
+	return filmRepository
 }
 
 func InitFilmService(FilmRepository *postgres.FilmRepo) *services.FilmServ {
-	FilmService := services.NewFilmServ(FilmRepository)
-	return FilmService
+	filmService := services.NewFilmServ(FilmRepository)
+	return filmService
 }
 
 func InitFilmController(FilmService *services.FilmServ) *handlers.FilmController {
-	FilmController := handlers.NewFilmHandler(FilmService)
-	return FilmController
+	filmController := handlers.NewFilmController(FilmService)
+	return filmController
 }
 
-func InitRouter(FilmController *handlers.FilmController) *restapi.Controller {
-	router := restapi.NewRouter(FilmController)
-	return router
+func InitController(FilmController *handlers.FilmController) *restapi.Controller {
+	controller := restapi.NewController(FilmController)
+	return controller
 }
 
-func InitServer(ConConf *configParser.ConnectionConfig, router *restapi.Controller) *http.Server {
-	middlewares := restapi.CreateMiddlewareStack(
-		restapi.LoggingMiddleware,
-		//Add more middlewares here
-	)
+func InitServer(ConConf *configParser.ConnectionConfig, router http.Handler) *http.Server {
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":" + strconv.Itoa(ConConf.Port)),
-		Handler: middlewares(router.InitRouter()),
+		Handler: router,
 	}
 	return srv
 }
@@ -98,11 +99,13 @@ func InitApp() App {
 	var app App
 
 	logger := InitLogger()
-	if err := LoadEnv(); err != nil {
+
+	err := LoadEnv()
+	if err != nil {
 		slog.Error(err.Error())
 		panic(err)
 	}
-	ConConf, err := InitConnectionConfig()
+	conConf, err := InitConnectionConfig()
 	if err != nil {
 		slog.Error(err.Error())
 		panic(err)
@@ -113,30 +116,53 @@ func InitApp() App {
 		panic(err)
 	}
 
-	FilmRepository := InitFilmRepository(db)
-	FilmService := InitFilmService(FilmRepository)
-	FilmController := InitFilmController(FilmService)
-	router := InitRouter(FilmController)
-
-	srv := InitServer(ConConf, router)
+	filmRepository := InitFilmRepository(db)
+	filmService := InitFilmService(filmRepository)
+	filmController := InitFilmController(filmService)
+	controller := InitController(filmController)
+	router := controller.InitRouter()
+	srv := InitServer(conConf, router)
 
 	app = App{
-		Logger:         logger,
-		ConConfig:      ConConf,
-		DB:             db,
-		FilmRepository: FilmRepository,
-		FilmService:    FilmService,
-		FilmController: FilmController,
-		Router:         router,
-		Server:         srv,
+		Logger:    logger,
+		ConConfig: conConf,
+		Server:    srv,
+		DB:        db,
 	}
 
 	return app
 }
 
 func (a *App) Run() {
-	a.Logger.Info("Starting server")
-	if err := a.Server.ListenAndServe(); err != nil {
-		a.Logger.Error("Server error", err)
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+
+	go func() {
+		a.Logger.Info("Starting server")
+		err := a.Server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			a.Logger.Error("Server start error",
+				"error", err.Error(),
+			)
+		}
+	}()
+
+	<-stop
+	a.Logger.Info("Shutting down server")
+
+	shutdownTimeout := time.Duration(a.ConConfig.ShutdownTimeout) * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	if err := a.Server.Shutdown(ctx); err != nil {
+		a.Logger.Error("Server shutdown error",
+			"error", err,
+		)
+	}
+
+	if err := a.DB.Close(); err != nil {
+		a.Logger.Error("DB close error",
+			"error", err,
+		)
 	}
 }

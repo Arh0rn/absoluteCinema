@@ -21,7 +21,7 @@ type FilmController struct {
 	service FilmService
 }
 
-func NewFilmHandler(service FilmService) *FilmController {
+func NewFilmController(service FilmService) *FilmController {
 	return &FilmController{
 		service: service,
 	}
@@ -149,6 +149,7 @@ func (c *FilmController) GetFilmByID(w http.ResponseWriter, r *http.Request) {
 //	@Param        film  body  models.FilmInput  true  "Updated film data"
 //	@Success      204   "Film updated successfully"
 //	@Failure      400   {string}  string  "Bad Request: ID is required or invalid JSON"
+//	@Failure      404  {string}  string       "Film not found"
 //	@Failure      500   {string}  string  "Internal Server Error"
 //	@Router       /films/{id} [patch]
 func (c *FilmController) UpdateFilmByID(w http.ResponseWriter, r *http.Request) {

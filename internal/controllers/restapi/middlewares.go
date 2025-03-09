@@ -9,7 +9,7 @@ import (
 
 type Middleware func(http.Handler) http.Handler
 
-func CreateMiddlewareStack(middlewares ...Middleware) Middleware {
+func createMiddlewareStack(middlewares ...Middleware) Middleware {
 	return func(next http.Handler) http.Handler {
 		for _, middleware := range middlewares {
 			next = middleware(next)
@@ -19,8 +19,8 @@ func CreateMiddlewareStack(middlewares ...Middleware) Middleware {
 }
 
 func LoggingMiddleware(next http.Handler) http.Handler {
+	start := time.Now()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
 		next.ServeHTTP(w, r)
 		end := time.Since(start)
 

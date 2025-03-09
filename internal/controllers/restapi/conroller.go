@@ -11,7 +11,7 @@ type Controller struct {
 	FilmController    handlers.FilmController
 }
 
-func NewRouter(fc *handlers.FilmController) *Controller {
+func NewController(fc *handlers.FilmController) *Controller {
 	return &Controller{
 		SwaggerController: handlers.SwaggerController{},
 		FilmController:    *fc,
@@ -19,13 +19,24 @@ func NewRouter(fc *handlers.FilmController) *Controller {
 }
 
 func (c *Controller) InitRouter() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /swagger/", c.SwaggerController.Swag())
-	mux.HandleFunc("GET /films/", c.FilmController.GetFilms)
-	mux.HandleFunc("GET /films/{id}", c.FilmController.GetFilmByID)
-	mux.HandleFunc("POST /films/", c.FilmController.AddFilm)
-	mux.HandleFunc("PATCH /films/{id}", c.FilmController.UpdateFilmByID)
-	mux.HandleFunc("DELETE /films/{id}", c.FilmController.DeleteFilmByID)
+	mainStackMiddleware := createMiddlewareStack(
+		LoggingMiddleware,
+		// AuthMiddleware,
+		// Other middlewares...
+	)
 
-	return mux
+	router := http.NewServeMux()
+
+	// Swagger
+	router.Handle("GET /swagger/", c.SwaggerController.Swag())
+
+	{ // Films
+		router.HandleFunc("GET /films/", c.FilmController.GetFilms)
+		router.HandleFunc("GET /films/{id}", c.FilmController.GetFilmByID)
+		router.HandleFunc("POST /films/", c.FilmController.AddFilm)
+		router.HandleFunc("PATCH /films/{id}", c.FilmController.UpdateFilmByID)
+		router.HandleFunc("DELETE /films/{id}", c.FilmController.DeleteFilmByID)
+	}
+
+	return mainStackMiddleware(router)
 }
