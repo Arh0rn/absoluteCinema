@@ -1,6 +1,10 @@
 package restapi
 
 import (
+	"absoluteCinema/internal/controllers/restapi/controllers"
+	"absoluteCinema/pkg"
+	"absoluteCinema/pkg/models"
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -19,8 +23,8 @@ func createMiddlewareStack(middlewares ...Middleware) Middleware {
 }
 
 func LoggingMiddleware(next http.Handler) http.Handler {
-	start := time.Now()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
 		next.ServeHTTP(w, r)
 		end := time.Since(start)
 
@@ -31,5 +35,30 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 			"duration", fmt.Sprintf("%v miliseconds", end.Milliseconds()),
 			"user_agent", r.UserAgent(),
 		)
+	})
+}
+
+func authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token, err := pkg.GetTokenFromRequest(r)
+		if err != nil {
+			slog.Error(err.Error(),
+				"architecture level", "middleware",
+			)
+			controllers.HandleError(w, models.ErrInvalidToken, http.StatusUnauthorized)
+			return
+		}
+		id, err := pkg.ParseToken(token, []byte("secret"))
+		if err != nil {
+			slog.Error(err.Error(),
+				"architecture level", "middleware",
+			)
+			controllers.HandleError(w, models.ErrInvalidToken, http.StatusUnauthorized)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), "id", id)
+		r = r.WithContext(ctx)
+		next.ServeHTTP(w, r)
 	})
 }

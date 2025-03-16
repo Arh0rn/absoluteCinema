@@ -4,7 +4,7 @@ BINARY_NAME=absoluteCinema
 MAIN_FILE=./cmd/app/main.go
 MIGRATIONS_DIR=./migrations
 
-DATABASE_URL=$(DRIVER_NAME)://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)
+DATABASE_URL=$(POSTGRES_DRIVER_NAME)://$(POSTGRES_DB_USER):$(POSTGRES_DB_PASSWORD)@$(POSTGRES_DB_HOST):$(POSTGRES_DB_PORT)/$(POSTGRES_DB_NAME)?sslmode=$(POSTGRES_DB_SSLMODE)
 
 build:
 	go build -o $(BINARY_NAME) $(MAIN_FILE)
@@ -24,13 +24,10 @@ migrate-up:
 migrate-down:
 	migrate -database $(DATABASE_URL) -path $(MIGRATIONS_DIR) down
 
-#new-migration:
-#	migrate create -ext sql -dir $(MIGRATIONS_DIR) -seq $(name)
-
 clean:
 	del /F /Q $(BINARY_NAME)
 
 rebuild: clean build
 
-print_env:
+print.env:
 	type .env

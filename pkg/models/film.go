@@ -1,12 +1,5 @@
 package models
 
-import "errors"
-
-var (
-	ErrFilmNotFound = errors.New("film not found")
-	ErrEmptyID      = errors.New("ID is empty")
-)
-
 //	type Person struct {
 //		ID        int    `json:"id"`
 //		FullName  string `json:"full_name"`

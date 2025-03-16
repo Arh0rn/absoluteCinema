@@ -1,7 +1,7 @@
 package postgres
 
 import (
-	"absoluteCinema/internal/models"
+	models2 "absoluteCinema/pkg/models"
 	"database/sql"
 	"fmt"
 	"log/slog"
@@ -13,13 +13,13 @@ type FilmRepo struct {
 	DB *sql.DB
 }
 
-func NewRepo(db *sql.DB) *FilmRepo {
+func NewFilmRepo(db *sql.DB) *FilmRepo {
 	return &FilmRepo{
 		DB: db,
 	}
 }
 
-func (r *FilmRepo) CreateFilm(film models.Film) error {
+func (r *FilmRepo) CreateFilm(film models2.Film) error {
 	_, err := r.DB.Exec(
 		"INSERT INTO films (id, title, description, release_year, country, duration, budget, box_office) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
 		film.ID, film.Title, film.Description, film.ReleaseYear, film.Country, film.Duration, film.Budget, film.BoxOffice)
@@ -33,7 +33,7 @@ func (r *FilmRepo) CreateFilm(film models.Film) error {
 	return nil
 }
 
-func (r *FilmRepo) GetFilms() ([]models.Film, error) {
+func (r *FilmRepo) GetFilms() ([]models2.Film, error) {
 
 	rows, err := r.DB.Query("SELECT * FROM films")
 	if err != nil {
@@ -45,9 +45,9 @@ func (r *FilmRepo) GetFilms() ([]models.Film, error) {
 	}
 	defer rows.Close()
 
-	films := make([]models.Film, 0)
+	films := make([]models2.Film, 0)
 	for rows.Next() {
-		var film models.Film
+		var film models2.Film
 		err = rows.Scan(
 			&film.ID,
 			&film.Title,
@@ -70,8 +70,8 @@ func (r *FilmRepo) GetFilms() ([]models.Film, error) {
 	return films, nil
 }
 
-func (r *FilmRepo) GetFilmByID(id string) (*models.Film, error) {
-	var film models.Film
+func (r *FilmRepo) GetFilmByID(id string) (*models2.Film, error) {
+	var film models2.Film
 	err := r.DB.QueryRow("SELECT * FROM films WHERE id = $1", id).Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseYear, &film.Country, &film.Duration, &film.Budget, &film.BoxOffice)
 	if err != nil {
 		slog.Error("GetFilmByID error",
@@ -84,7 +84,7 @@ func (r *FilmRepo) GetFilmByID(id string) (*models.Film, error) {
 	return &film, nil
 }
 
-func (r *FilmRepo) UpdateFilmByID(id string, film models.FilmInput) error {
+func (r *FilmRepo) UpdateFilmByID(id string, film models2.FilmInput) error {
 	setValues := make([]string, 0)
 	args := make([]any, 0)
 	argID := 1
@@ -160,7 +160,7 @@ func (r *FilmRepo) UpdateFilmByID(id string, film models.FilmInput) error {
 		slog.Warn("No rows affected",
 			"architecture level", "repository",
 		)
-		return models.ErrFilmNotFound
+		return models2.ErrFilmNotFound
 	}
 
 	return nil
@@ -189,7 +189,7 @@ func (r *FilmRepo) DeleteFilmByID(id string) error {
 		slog.Warn("No rows affected",
 			"architecture level", "repository",
 		)
-		return models.ErrFilmNotFound
+		return models2.ErrFilmNotFound
 	}
 
 	return nil

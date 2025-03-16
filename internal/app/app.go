@@ -1,23 +1,15 @@
 package app
 
 import (
-	"absoluteCinema/internal/controllers/restapi"
-	"absoluteCinema/internal/controllers/restapi/handlers"
-	"absoluteCinema/internal/repository/postgres"
-	"absoluteCinema/internal/services"
-	"absoluteCinema/pkg"
 	"absoluteCinema/pkg/configParser"
-	"absoluteCinema/pkg/database"
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	_ "github.com/lib/pq"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 )
@@ -35,64 +27,6 @@ type App struct {
 	//FilmService    *services.FilmServ
 	//FilmController *handlers.FilmController
 	//router         http.Handler
-}
-
-func InitLogger() *slog.Logger {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
-	return logger
-}
-
-func LoadEnv() error {
-	if err := pkg.LoadEnv(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func InitConnectionConfig() (*configParser.ConnectionConfig, error) {
-	conConf, err := configParser.ParseConnectionConfig(ConConfigPath)
-	if err != nil {
-		return nil, err
-	}
-	return conConf, nil
-}
-
-func InitDB() (*sql.DB, error) {
-	db, err := database.NewPostgresConnection()
-	if err != nil {
-		return nil, err
-	}
-	return db, nil
-}
-
-func InitFilmRepository(db *sql.DB) *postgres.FilmRepo {
-	filmRepository := postgres.NewRepo(db)
-	return filmRepository
-}
-
-func InitFilmService(FilmRepository *postgres.FilmRepo) *services.FilmServ {
-	filmService := services.NewFilmServ(FilmRepository)
-	return filmService
-}
-
-func InitFilmController(FilmService *services.FilmServ) *handlers.FilmController {
-	filmController := handlers.NewFilmController(FilmService)
-	return filmController
-}
-
-func InitController(FilmController *handlers.FilmController) *restapi.Controller {
-	controller := restapi.NewController(FilmController)
-	return controller
-}
-
-func InitServer(ConConf *configParser.ConnectionConfig, router http.Handler) *http.Server {
-
-	srv := &http.Server{
-		Addr:    fmt.Sprintf(":" + strconv.Itoa(ConConf.Port)),
-		Handler: router,
-	}
-	return srv
 }
 
 func InitApp() App {
@@ -116,11 +50,22 @@ func InitApp() App {
 		panic(err)
 	}
 
+	//User
+	hasher := InitHasher(os.Getenv("HASH_SALT"))
+	secret := []byte(os.Getenv("JWT_SECRET"))
+	ttl := time.Duration(conConf.TokenTTl) * time.Minute
+	userRepository := InitUserRepository(db)
+	userService := InitUserService(userRepository, hasher, []byte(secret), ttl)
+	userController := InitUserController(userService)
+
+	//Film
 	filmRepository := InitFilmRepository(db)
 	filmService := InitFilmService(filmRepository)
 	filmController := InitFilmController(filmService)
-	controller := InitController(filmController)
-	router := controller.InitRouter()
+
+	//Handler
+	controller := InitHandler(filmController, userController)
+	router := controller.InitRouter(conConf)
 	srv := InitServer(conConf, router)
 
 	app = App{

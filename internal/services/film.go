@@ -1,19 +1,19 @@
 package services
 
 import (
-	"absoluteCinema/internal/models"
 	"absoluteCinema/pkg"
+	models2 "absoluteCinema/pkg/models"
 	"database/sql"
 	"errors"
 	"log/slog"
 )
 
 type FilmRepository interface {
-	GetFilms() ([]models.Film, error)
-	GetFilmByID(id string) (*models.Film, error)
-	UpdateFilmByID(id string, film models.FilmInput) error
+	GetFilms() ([]models2.Film, error)
+	GetFilmByID(id string) (*models2.Film, error)
+	UpdateFilmByID(id string, film models2.FilmInput) error
 	DeleteFilmByID(id string) error
-	CreateFilm(film models.Film) error
+	CreateFilm(film models2.Film) error
 }
 
 type FilmServ struct {
@@ -26,8 +26,8 @@ func NewFilmServ(repo FilmRepository) *FilmServ {
 	}
 }
 
-func (f FilmServ) Create(filmDto models.FilmInput) (*models.Film, error) {
-	film := models.Film{
+func (f FilmServ) Create(filmDto models2.FilmInput) (*models2.Film, error) {
+	film := models2.Film{
 		ID:          pkg.GenerateUUID(),
 		Title:       filmDto.Title,
 		Description: filmDto.Description,
@@ -46,18 +46,18 @@ func (f FilmServ) Create(filmDto models.FilmInput) (*models.Film, error) {
 	return &film, err
 }
 
-func (f FilmServ) GetAll() ([]models.Film, error) {
+func (f FilmServ) GetAll() ([]models2.Film, error) {
 	return f.repo.GetFilms()
 }
 
-func (f FilmServ) GetByID(id string) (*models.Film, error) {
+func (f FilmServ) GetByID(id string) (*models2.Film, error) {
 	film, err := f.repo.GetFilmByID(id)
 	if errors.Is(err, sql.ErrNoRows) {
-		slog.Error(models.ErrFilmNotFound.Error(),
+		slog.Error(models2.ErrFilmNotFound.Error(),
 			"architecture level", "service",
 			"id", id,
 		)
-		return nil, models.ErrFilmNotFound
+		return nil, models2.ErrFilmNotFound
 	}
 	if err != nil {
 		slog.Error(err.Error(),
@@ -68,14 +68,14 @@ func (f FilmServ) GetByID(id string) (*models.Film, error) {
 	return film, nil
 }
 
-func (f FilmServ) UpdateByID(id string, film models.FilmInput) error {
+func (f FilmServ) UpdateByID(id string, film models2.FilmInput) error {
 	err := f.repo.UpdateFilmByID(id, film)
-	if errors.Is(err, models.ErrFilmNotFound) {
-		slog.Error(models.ErrFilmNotFound.Error(),
+	if errors.Is(err, models2.ErrFilmNotFound) {
+		slog.Error(models2.ErrFilmNotFound.Error(),
 			"architecture level", "service",
 			"id", id,
 		)
-		return models.ErrFilmNotFound
+		return models2.ErrFilmNotFound
 	}
 	if err != nil {
 		slog.Error(err.Error(),
@@ -88,12 +88,12 @@ func (f FilmServ) UpdateByID(id string, film models.FilmInput) error {
 
 func (f FilmServ) DeleteByID(id string) error {
 	err := f.repo.DeleteFilmByID(id)
-	if errors.Is(err, models.ErrFilmNotFound) {
-		slog.Error(models.ErrFilmNotFound.Error(),
+	if errors.Is(err, models2.ErrFilmNotFound) {
+		slog.Error(models2.ErrFilmNotFound.Error(),
 			"architecture level", "service",
 			"id", id,
 		)
-		return models.ErrFilmNotFound
+		return models2.ErrFilmNotFound
 	}
 	if err != nil {
 		slog.Error(err.Error(),

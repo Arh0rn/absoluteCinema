@@ -9,6 +9,7 @@ type ConnectionConfig struct {
 	Port            int    `yaml:"port"`
 	Host            string `yaml:"host"`
 	ShutdownTimeout int    `yaml:"shutdownTimeout"`
+	TokenTTl        int    `yaml:"tokenTTL"`
 }
 
 func ParseConnectionConfig(filePath string) (*ConnectionConfig, error) {
