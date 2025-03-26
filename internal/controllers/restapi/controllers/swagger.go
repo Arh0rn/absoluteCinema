@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"absoluteCinema/pkg/configParser"
-	"absoluteCinema/pkg/models"
+	"github.com/Arh0rn/absoluteCinema/pkg/configParser"
+	"github.com/Arh0rn/absoluteCinema/pkg/models"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"net/http"
 	"strconv"

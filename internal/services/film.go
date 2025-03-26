@@ -1,10 +1,10 @@
 package services
 
 import (
-	"absoluteCinema/pkg"
-	models2 "absoluteCinema/pkg/models"
 	"database/sql"
 	"errors"
+	"github.com/Arh0rn/absoluteCinema/pkg"
+	models2 "github.com/Arh0rn/absoluteCinema/pkg/models"
 	"log/slog"
 )
 

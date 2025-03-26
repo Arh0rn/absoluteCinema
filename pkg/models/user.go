@@ -1,5 +1,6 @@
 package models
 
+// User TODO: Relocate all tags to dao for every model
 type User struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`

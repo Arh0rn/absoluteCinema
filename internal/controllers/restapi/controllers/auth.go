@@ -1,17 +1,17 @@
 package controllers
 
 import (
-	"absoluteCinema/pkg/models"
 	"encoding/json"
 	"errors"
+	"github.com/Arh0rn/absoluteCinema/pkg/models"
 	"log/slog"
 	"net/http"
 )
 
 type UserService interface {
 	SignUp(signUpInput models.SignUpInput) (*models.User, error)
-	SignIn(inputSignIn models.SignInInput) (string, error)
-	ParseToken(token string) (string, error)
+	SignIn(inputSignIn models.SignInInput) (string, string, error)
+	RefreshTokens(rt string) (string, string, error)
 }
 
 type UserController struct {
@@ -45,7 +45,8 @@ func (c *UserController) SignUp(w http.ResponseWriter, r *http.Request) {
 		slog.Error(err.Error(),
 			"architecture level", "controller",
 		)
-		http.Error(w, models.REInvalidRequestBody.String(), http.StatusBadRequest)
+		//http.Error(w, models.REInvalidRequestBody.String(), http.StatusBadRequest)
+		HandleError(w, models.ErrInvalidRequestBody, http.StatusBadRequest)
 		return
 	}
 
@@ -53,7 +54,8 @@ func (c *UserController) SignUp(w http.ResponseWriter, r *http.Request) {
 		slog.Error(err.Error(),
 			"architecture level", "controller",
 		)
-		http.Error(w, models.REValidation.String(), http.StatusUnprocessableEntity)
+		//http.Error(w, models.REValidation.String(), http.StatusUnprocessableEntity)
+		HandleError(w, models.ErrValidation, http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -62,21 +64,24 @@ func (c *UserController) SignUp(w http.ResponseWriter, r *http.Request) {
 		slog.Error(models.ErrUserAlreadyExists.Error(),
 			"architecture level", "controller",
 		)
-		http.Error(w, models.REUserAlreadyExists.String(), http.StatusConflict)
+		//http.Error(w, models.REUserAlreadyExists.String(), http.StatusConflict)
+		HandleError(w, models.ErrUserAlreadyExists, http.StatusBadRequest)
 		return
 	}
 	if errors.Is(err, models.ErrUsernameAlreadyTaken) {
 		slog.Error(models.ErrUsernameAlreadyTaken.Error(),
 			"architecture level", "controller",
 		)
-		http.Error(w, models.REUsernameAlreadyTaken.String(), http.StatusConflict)
+		//http.Error(w, models.REUsernameAlreadyTaken.String(), http.StatusConflict)
+		HandleError(w, models.ErrUsernameAlreadyTaken, http.StatusBadRequest)
 		return
 	}
 	if err != nil {
 		slog.Error(err.Error(),
 			"architecture level", "controller",
 		)
-		http.Error(w, models.REInternalServer.String(), http.StatusInternalServerError)
+		//http.Error(w, models.REInternalServer.String(), http.StatusInternalServerError)
+		HandleError(w, models.ErrInternalServer, http.StatusInternalServerError)
 		return
 	}
 
@@ -116,7 +121,8 @@ func (c *UserController) SignIn(w http.ResponseWriter, r *http.Request) {
 		slog.Error(err.Error(),
 			"architecture level", "controller",
 		)
-		http.Error(w, models.REInvalidRequestBody.String(), http.StatusBadRequest)
+		//http.Error(w, models.REInvalidRequestBody.String(), http.StatusBadRequest)
+		HandleError(w, models.ErrInvalidRequestBody, http.StatusBadRequest)
 		return
 	}
 
@@ -124,31 +130,73 @@ func (c *UserController) SignIn(w http.ResponseWriter, r *http.Request) {
 		slog.Error(err.Error(),
 			"architecture level", "controller",
 		)
-		http.Error(w, models.REValidation.String(), http.StatusUnprocessableEntity)
+		//http.Error(w, models.REValidation.String(), http.StatusUnprocessableEntity)
+		HandleError(w, models.ErrValidation, http.StatusUnprocessableEntity)
 	}
-	token, err := c.service.SignIn(inputSignIn)
+	at, rt, err := c.service.SignIn(inputSignIn)
 	if errors.Is(err, models.ErrUserNotFound) {
 		slog.Error(models.ErrUserNotFound.Error(),
 			"architecture level", "controller",
 		)
-		http.Error(w, models.REUserNotFound.String(), http.StatusNotFound)
+		//http.Error(w, models.REUserNotFound.String(), http.StatusNotFound)
+		HandleError(w, models.ErrUserNotFound, http.StatusBadRequest)
 		return
 	}
 	if err != nil {
 		slog.Error(err.Error(),
 			"architecture level", "controller",
 		)
-		http.Error(w, models.REInvalidRequestBody.String(), http.StatusInternalServerError)
+		//http.Error(w, models.REInvalidRequestBody.String(), http.StatusInternalServerError)
+		HandleError(w, models.ErrInternalServer, http.StatusInternalServerError)
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(map[string]string{"token": token})
+	w.Header().Add("Set-Cookie", "refresh-token="+rt+"; HttpOnly")
+	err = json.NewEncoder(w).Encode(map[string]string{"token": at})
 	if err != nil {
 		slog.Error("Error encoding JSON",
 			"architecture level", "controller",
 			"error", err.Error(),
 		)
-		http.Error(w, models.REInvalidRequestBody.String(), http.StatusInternalServerError)
+		HandleError(w, models.ErrInternalServer, http.StatusInternalServerError)
 		return
+	}
+}
+
+func (c *UserController) Refresh(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("refresh-token")
+	if err != nil {
+		slog.Error(err.Error(),
+			"architecture level", "controller",
+			"cookie value", cookie,
+		)
+		HandleError(w, models.ErrRefreshToken, http.StatusBadRequest)
+		return
+	}
+	//slog.Info("Refresh token", "cookie value", cookie)
+	at, rt, err := c.service.RefreshTokens(cookie.Value)
+	if errors.Is(err, models.ErrRefreshTokenExpired) {
+		slog.Error(err.Error(),
+			"architecture level", "controller",
+		)
+		HandleError(w, models.ErrRefreshTokenExpired, http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		slog.Error(err.Error(),
+			"architecture level", "controller",
+		)
+		HandleError(w, models.ErrInternalServer, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Add("Set-Cookie", "refresh-token="+rt+"; HttpOnly")
+	err = json.NewEncoder(w).Encode(map[string]string{"token": at})
+	if err != nil {
+		slog.Error("Error encoding JSON",
+			"architecture level", "controller",
+			"error", err.Error(),
+		)
+		HandleError(w, models.ErrInternalServer, http.StatusInternalServerError)
 	}
 }

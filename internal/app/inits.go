@@ -1,15 +1,15 @@
 package app
 
 import (
-	"absoluteCinema/internal/controllers/restapi"
-	"absoluteCinema/internal/controllers/restapi/controllers"
-	"absoluteCinema/internal/repository/postgres"
-	"absoluteCinema/internal/services"
-	"absoluteCinema/pkg"
-	"absoluteCinema/pkg/configParser"
-	"absoluteCinema/pkg/database"
 	"database/sql"
 	"fmt"
+	"github.com/Arh0rn/absoluteCinema/internal/controllers/restapi"
+	"github.com/Arh0rn/absoluteCinema/internal/controllers/restapi/controllers"
+	"github.com/Arh0rn/absoluteCinema/internal/repository/postgres"
+	"github.com/Arh0rn/absoluteCinema/internal/services"
+	"github.com/Arh0rn/absoluteCinema/pkg"
+	"github.com/Arh0rn/absoluteCinema/pkg/configParser"
+	"github.com/Arh0rn/absoluteCinema/pkg/database"
 	"log/slog"
 	"net/http"
 	"os"
@@ -51,13 +51,18 @@ func InitHasher(hash string) *pkg.Hasher {
 	return hasher
 }
 
+func InitTokenRepository(db *sql.DB) *postgres.TokenRepo {
+	tokenRepository := postgres.NewTokenRepo(db)
+	return tokenRepository
+}
+
 func InitUserRepository(db *sql.DB) *postgres.UserRepo {
 	userRepository := postgres.NewUserRepo(db)
 	return userRepository
 }
 
-func InitUserService(UserRepository *postgres.UserRepo, hasher *pkg.Hasher, secret []byte, ttl time.Duration) *services.UserServ {
-	userService := services.NewUserServ(UserRepository, hasher, secret, ttl)
+func InitUserService(ur *postgres.UserRepo, tr *postgres.TokenRepo, h *pkg.Hasher, s []byte, attl time.Duration, rttl time.Duration) *services.UserServ {
+	userService := services.NewUserServ(ur, tr, h, s, attl, rttl)
 	return userService
 }
 

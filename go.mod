@@ -1,4 +1,4 @@
-module absoluteCinema
+module github.com/Arh0rn/absoluteCinema
 
 go 1.23
 

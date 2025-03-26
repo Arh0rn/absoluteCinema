@@ -1,10 +1,11 @@
 package services
 
 import (
-	"absoluteCinema/pkg"
-	"absoluteCinema/pkg/models"
 	"database/sql"
 	"errors"
+	"github.com/Arh0rn/absoluteCinema/pkg"
+	"github.com/Arh0rn/absoluteCinema/pkg/models"
+	"github.com/golang-jwt/jwt"
 	"github.com/lib/pq"
 	"log/slog"
 	"strings"
@@ -16,23 +17,32 @@ type UserRepository interface {
 	GetUserByCredentials(email, password string) (*models.User, error)
 }
 
+type TokenRepository interface {
+	CreateToken(*models.RefreshSession) error
+	PopToken(string) (*models.RefreshSession, error)
+}
+
 type PasswordHasher interface {
 	Hash(password string) (string, error)
 }
 type UserServ struct {
-	repo   UserRepository
-	hasher PasswordHasher
+	repo      UserRepository
+	tokenRepo TokenRepository
+	hasher    PasswordHasher
 
 	hmacSecret []byte
-	tokenTTL   time.Duration
+	aTokenTTL  time.Duration
+	rTokenTTL  time.Duration
 }
 
-func NewUserServ(repo UserRepository, hasher PasswordHasher, hmacSecret []byte, tokenTTL time.Duration) *UserServ {
+func NewUserServ(ur UserRepository, tr TokenRepository, h PasswordHasher, secret []byte, attl time.Duration, rttl time.Duration) *UserServ {
 	return &UserServ{
-		repo:       repo,
-		hasher:     hasher,
-		hmacSecret: hmacSecret,
-		tokenTTL:   tokenTTL,
+		repo:       ur,
+		tokenRepo:  tr,
+		hasher:     h,
+		hmacSecret: secret,
+		aTokenTTL:  attl,
+		rTokenTTL:  rttl,
 	}
 }
 
@@ -85,13 +95,13 @@ func (u UserServ) SignUp(signUpInput models.SignUpInput) (*models.User, error) {
 	return createdUser, nil
 }
 
-func (u UserServ) SignIn(inputSignIn models.SignInInput) (string, error) {
+func (u UserServ) SignIn(inputSignIn models.SignInInput) (string, string, error) {
 	password, err := u.hasher.Hash(inputSignIn.Password)
 	if err != nil {
 		slog.Error(err.Error(),
 			"architecture level", "service",
 		)
-		return "", err
+		return "", "", err
 	}
 
 	user, err := u.repo.GetUserByCredentials(inputSignIn.Email, password)
@@ -100,35 +110,64 @@ func (u UserServ) SignIn(inputSignIn models.SignInInput) (string, error) {
 			"architecture level", "service",
 			"email", inputSignIn.Email,
 		)
-		return "", models.ErrUserNotFound
+		return "", "", models.ErrUserNotFound
 	}
 	//if errors.Is(err, sql.Er)
 	if err != nil {
 		slog.Error(err.Error(),
 			"architecture level", "service",
 		)
-		return "", err
+		return "", "", err
 	}
 
-	token, err := pkg.GenerateToken(user, u.hmacSecret, u.tokenTTL)
+	at, rt, err := u.GenerateTokens(user.ID)
 	if err != nil {
 		slog.Error(err.Error(),
 			"architecture level", "service",
 		)
-		return "", err
+		return "", "", err
 	}
 
-	return token, nil
+	return at, rt, nil
 }
 
-func (u UserServ) ParseToken(token string) (string, error) {
-	id, err := pkg.ParseToken(token, u.hmacSecret)
+func (u UserServ) GenerateTokens(userId string) (string, string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
+		Subject:   userId,
+		IssuedAt:  time.Now().Unix(),
+		ExpiresAt: time.Now().Add(u.aTokenTTL).Unix(),
+	})
+	at, err := token.SignedString(u.hmacSecret)
 	if err != nil {
-		slog.Error(err.Error(),
-			"architecture level", "service",
-		)
-		return "", err
+		return "", "", err
 	}
 
-	return id, nil
+	rt, err := pkg.GenerateRefreshToken()
+	if err != nil {
+		return "", "", err
+	}
+
+	err = u.tokenRepo.CreateToken(&models.RefreshSession{
+		UserID:    userId,
+		Token:     rt,
+		ExpiresAt: time.Now().Add(u.rTokenTTL),
+	})
+	if err != nil {
+		return "", "", err
+	}
+
+	return at, rt, nil
+}
+
+func (u UserServ) RefreshTokens(rt string) (string, string, error) {
+	session, err := u.tokenRepo.PopToken(rt)
+	if err != nil {
+		return "", "", err
+	}
+
+	if session.ExpiresAt.Unix() < time.Now().Unix() {
+		return "", "", models.ErrRefreshTokenExpired
+	}
+
+	return u.GenerateTokens(session.UserID)
 }

@@ -1,11 +1,11 @@
 package restapi
 
 import (
-	"absoluteCinema/internal/controllers/restapi/controllers"
-	"absoluteCinema/pkg"
-	"absoluteCinema/pkg/models"
 	"context"
 	"fmt"
+	"github.com/Arh0rn/absoluteCinema/internal/controllers/restapi/controllers"
+	"github.com/Arh0rn/absoluteCinema/pkg"
+	"github.com/Arh0rn/absoluteCinema/pkg/models"
 	"log/slog"
 	"net/http"
 	"time"

@@ -1,8 +1,8 @@
 package postgres
 
 import (
-	"absoluteCinema/pkg/models"
 	"database/sql"
+	"github.com/Arh0rn/absoluteCinema/pkg/models"
 	"log/slog"
 )
 

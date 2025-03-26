@@ -1,21 +1,23 @@
 package pkg
 
 import (
-	"absoluteCinema/pkg/models"
+	"crypto/rand"
 	"errors"
+	"fmt"
 	"github.com/golang-jwt/jwt"
+	"log/slog"
 	"net/http"
 	"strings"
-	"time"
 )
 
-func GenerateToken(user *models.User, secret []byte, ttl time.Duration) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
-		Subject:   user.ID,
-		IssuedAt:  time.Now().Unix(),
-		ExpiresAt: time.Now().Add(ttl).Unix(),
-	})
-	return token.SignedString(secret)
+func GenerateRefreshToken() (string, error) {
+	b := make([]byte, 32)
+
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", b), nil
 }
 
 func ParseToken(tokenString string, secret []byte) (string, error) {
@@ -25,6 +27,7 @@ func ParseToken(tokenString string, secret []byte) (string, error) {
 		}
 		return secret, nil
 	})
+	slog.Info("test")
 	if err != nil {
 		return "", err
 	}
@@ -41,7 +44,6 @@ func ParseToken(tokenString string, secret []byte) (string, error) {
 	if id == "" {
 		return "", errors.New("invalid subject")
 	}
-
 	return id, nil
 }
 

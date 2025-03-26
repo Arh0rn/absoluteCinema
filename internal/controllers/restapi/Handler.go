@@ -1,9 +1,9 @@
 package restapi
 
 import (
-	_ "absoluteCinema/docs"
-	"absoluteCinema/internal/controllers/restapi/controllers"
-	"absoluteCinema/pkg/configParser"
+	_ "github.com/Arh0rn/absoluteCinema/docs"
+	"github.com/Arh0rn/absoluteCinema/internal/controllers/restapi/controllers"
+	"github.com/Arh0rn/absoluteCinema/pkg/configParser"
 	"net/http"
 )
 
@@ -29,14 +29,15 @@ func (c *Handler) InitRouter(conf *configParser.ConnectionConfig) http.Handler {
 	)
 
 	router := http.NewServeMux()
+	signedRouter := http.NewServeMux()
 
 	// Swagger
 	router.Handle("GET /swagger/", c.SwaggerController.Swag(conf))
-	{ // User
+	{ // Auth
 		router.HandleFunc("POST /auth/sign-up", c.UserController.SignUp)
 		router.HandleFunc("POST /auth/sign-in", c.UserController.SignIn)
+		router.HandleFunc("GET /auth/refresh", c.UserController.Refresh)
 	}
-	signedRouter := http.NewServeMux()
 	{ // Films
 		signedRouter.HandleFunc("GET /films/", c.FilmController.GetFilms)
 		signedRouter.HandleFunc("GET /films/{id}", c.FilmController.GetFilmByID)

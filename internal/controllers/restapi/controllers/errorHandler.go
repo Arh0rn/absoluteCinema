@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"absoluteCinema/pkg/models"
+	"github.com/Arh0rn/absoluteCinema/pkg/models"
 	"log/slog"
 	"net/http"
 )

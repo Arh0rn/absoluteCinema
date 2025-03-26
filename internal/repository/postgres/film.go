@@ -1,9 +1,9 @@
 package postgres
 
 import (
-	models2 "absoluteCinema/pkg/models"
 	"database/sql"
 	"fmt"
+	models2 "github.com/Arh0rn/absoluteCinema/pkg/models"
 	"log/slog"
 	"strconv"
 	"strings"

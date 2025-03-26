@@ -1,7 +1,7 @@
 package main
 
 import (
-	"absoluteCinema/internal/app"
+	"github.com/Arh0rn/absoluteCinema/internal/app"
 )
 
 // @title absoluteCinema

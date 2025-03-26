@@ -1,10 +1,11 @@
 package app
 
 import (
-	"absoluteCinema/pkg/configParser"
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"github.com/Arh0rn/absoluteCinema/pkg/configParser"
 	_ "github.com/lib/pq"
 	"log/slog"
 	"net/http"
@@ -53,9 +54,12 @@ func InitApp() App {
 	//User
 	hasher := InitHasher(os.Getenv("HASH_SALT"))
 	secret := []byte(os.Getenv("JWT_SECRET"))
-	ttl := time.Duration(conConf.TokenTTl) * time.Minute
+	attl := time.Duration(conConf.AccessTokenTTL) * time.Minute
+	rttl := time.Duration(conConf.RefreshTokenTTL) * time.Minute
+	slog.Info(fmt.Sprintf("%v", attl))
 	userRepository := InitUserRepository(db)
-	userService := InitUserService(userRepository, hasher, []byte(secret), ttl)
+	tokenRepository := InitTokenRepository(db)
+	userService := InitUserService(userRepository, tokenRepository, hasher, []byte(secret), attl, rttl)
 	userController := InitUserController(userService)
 
 	//Film
@@ -63,7 +67,7 @@ func InitApp() App {
 	filmService := InitFilmService(filmRepository)
 	filmController := InitFilmController(filmService)
 
-	//Handler
+	//Server
 	controller := InitHandler(filmController, userController)
 	router := controller.InitRouter(conConf)
 	srv := InitServer(conConf, router)
