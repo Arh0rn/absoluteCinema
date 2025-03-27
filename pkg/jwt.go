@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang-jwt/jwt"
-	"log/slog"
 	"net/http"
 	"strings"
 )
@@ -27,7 +26,6 @@ func ParseToken(tokenString string, secret []byte) (string, error) {
 		}
 		return secret, nil
 	})
-	slog.Info("test")
 	if err != nil {
 		return "", err
 	}

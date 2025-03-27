@@ -1,5 +1,9 @@
 port: 8080
 host: localhost
 shutdownTimeout: 10 #seconds
+ReadTimeout: 10 #seconds
+WriteTimeout: 10 #seconds
+IdleTimeout: 120 #seconds
 accessTokenTTL: 15 #minutes
 refreshTokenTTL: 43200 #minutes (one month)
+cacheTTL: 5 #minutes

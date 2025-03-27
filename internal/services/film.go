@@ -1,33 +1,43 @@
 package services
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"github.com/Arh0rn/absoluteCinema/pkg"
-	models2 "github.com/Arh0rn/absoluteCinema/pkg/models"
+	"github.com/Arh0rn/absoluteCinema/pkg/models"
 	"log/slog"
 )
 
 type FilmRepository interface {
-	GetFilms() ([]models2.Film, error)
-	GetFilmByID(id string) (*models2.Film, error)
-	UpdateFilmByID(id string, film models2.FilmInput) error
-	DeleteFilmByID(id string) error
-	CreateFilm(film models2.Film) error
+	GetAll() ([]*models.Film, error)
+	GetByID(id string) (*models.Film, error)
+	UpdateByID(id string, filmInput *models.FilmInput) error
+	DeleteByID(id string) error
+	Create(*models.Film) error
 }
-
+type FilmCache interface {
+	GetAll(context.Context) ([]*models.Film, error)
+	GetByID(ctx context.Context, id string) (*models.Film, error)
+	Set(context.Context, *models.Film) error
+	SetAll(context.Context, []*models.Film) error
+	Update(ctx context.Context, filmInput *models.Film) error
+	Delete(context.Context, string) error
+}
 type FilmServ struct {
-	repo FilmRepository
+	repo  FilmRepository
+	cache FilmCache
 }
 
-func NewFilmServ(repo FilmRepository) *FilmServ {
+func NewFilmServ(repo FilmRepository, cache FilmCache) *FilmServ {
 	return &FilmServ{
-		repo: repo,
+		repo:  repo,
+		cache: cache,
 	}
 }
 
-func (f FilmServ) Create(filmDto models2.FilmInput) (*models2.Film, error) {
-	film := models2.Film{
+func (f FilmServ) Create(ctx context.Context, filmDto models.FilmInput) (*models.Film, error) {
+	film := models.Film{
 		ID:          pkg.GenerateUUID(),
 		Title:       filmDto.Title,
 		Description: filmDto.Description,
@@ -38,26 +48,56 @@ func (f FilmServ) Create(filmDto models2.FilmInput) (*models2.Film, error) {
 		BoxOffice:   filmDto.BoxOffice,
 	}
 
-	err := f.repo.CreateFilm(film)
+	err := f.repo.Create(&film)
 	if err != nil {
 		return nil, err
+	}
+
+	err = f.cache.Set(ctx, &film)
+	if err != nil {
+		slog.Warn("Cache set error",
+			"architecture level", "service",
+			"error", err.Error())
 	}
 
 	return &film, err
 }
 
-func (f FilmServ) GetAll() ([]models2.Film, error) {
-	return f.repo.GetFilms()
+func (f FilmServ) GetAll(ctx context.Context) ([]*models.Film, error) {
+	films, err := f.cache.GetAll(ctx)
+	if err == nil && len(films) > 0 {
+		return films, nil
+	}
+	if err != nil {
+		slog.Warn("Cache get all error",
+			"architecture level", "service",
+			"error", err.Error())
+	}
+	films, err = f.repo.GetAll()
+
+	err = f.cache.SetAll(ctx, films)
+	if err != nil {
+		slog.Warn("Cache set all error",
+			"architecture level", "service",
+			"error", err.Error())
+	}
+
+	return films, err
 }
 
-func (f FilmServ) GetByID(id string) (*models2.Film, error) {
-	film, err := f.repo.GetFilmByID(id)
+func (f FilmServ) GetByID(ctx context.Context, id string) (*models.Film, error) {
+	film, err := f.cache.GetByID(ctx, id)
+	if err == nil && film != nil {
+		return film, nil
+	}
+
+	film, err = f.repo.GetByID(id)
 	if errors.Is(err, sql.ErrNoRows) {
-		slog.Error(models2.ErrFilmNotFound.Error(),
+		slog.Error(models.ErrFilmNotFound.Error(),
 			"architecture level", "service",
 			"id", id,
 		)
-		return nil, models2.ErrFilmNotFound
+		return nil, models.ErrFilmNotFound
 	}
 	if err != nil {
 		slog.Error(err.Error(),
@@ -65,35 +105,54 @@ func (f FilmServ) GetByID(id string) (*models2.Film, error) {
 		)
 		return nil, err
 	}
+
+	err = f.cache.Set(ctx, film)
+	if err != nil {
+		slog.Warn("Cache set error",
+			"architecture level", "service",
+			"error", err.Error())
+	}
+
 	return film, nil
 }
 
-func (f FilmServ) UpdateByID(id string, film models2.FilmInput) error {
-	err := f.repo.UpdateFilmByID(id, film)
-	if errors.Is(err, models2.ErrFilmNotFound) {
-		slog.Error(models2.ErrFilmNotFound.Error(),
+func (f FilmServ) UpdateByID(ctx context.Context, id string, filmInput models.FilmInput) error {
+	err := f.repo.UpdateByID(id, &filmInput)
+	if errors.Is(err, models.ErrFilmNotFound) {
+		slog.Error(models.ErrFilmNotFound.Error(),
 			"architecture level", "service",
 			"id", id,
 		)
-		return models2.ErrFilmNotFound
+		return models.ErrFilmNotFound
 	}
 	if err != nil {
 		slog.Error(err.Error(),
 			"architecture level", "service",
 		)
 		return err
+	}
+	film, err := f.repo.GetByID(id)
+	if err != nil {
+		return err
+	}
+
+	err = f.cache.Update(ctx, film)
+	if err != nil {
+		slog.Warn("Cache delete error",
+			"architecture level", "service",
+			"error", err.Error())
 	}
 	return nil
 }
 
-func (f FilmServ) DeleteByID(id string) error {
-	err := f.repo.DeleteFilmByID(id)
-	if errors.Is(err, models2.ErrFilmNotFound) {
-		slog.Error(models2.ErrFilmNotFound.Error(),
+func (f FilmServ) DeleteByID(ctx context.Context, id string) error {
+	err := f.repo.DeleteByID(id)
+	if errors.Is(err, models.ErrFilmNotFound) {
+		slog.Error(models.ErrFilmNotFound.Error(),
 			"architecture level", "service",
 			"id", id,
 		)
-		return models2.ErrFilmNotFound
+		return models.ErrFilmNotFound
 	}
 	if err != nil {
 		slog.Error(err.Error(),
@@ -101,5 +160,13 @@ func (f FilmServ) DeleteByID(id string) error {
 		)
 		return err
 	}
+
+	err = f.cache.Delete(context.Background(), id)
+	if err != nil {
+		slog.Warn("Cache delete error",
+			"architecture level", "service",
+			"error", err.Error())
+	}
+
 	return nil
 }

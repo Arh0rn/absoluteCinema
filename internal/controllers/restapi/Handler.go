@@ -21,10 +21,11 @@ func NewHandler(fc *controllers.FilmController, uc *controllers.UserController) 
 	}
 }
 
+// TODO: Set context through all handlers
 func (c *Handler) InitRouter(conf *configParser.ConnectionConfig) http.Handler {
 	mainStackMiddleware := createMiddlewareStack(
 		LoggingMiddleware,
-		// AuthMiddleware,
+		CacheMiddlewareTTL(conf.CacheTTL),
 		// Other middlewares...
 	)
 

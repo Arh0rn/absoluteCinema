@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"github.com/Arh0rn/absoluteCinema/pkg/models"
@@ -9,11 +10,11 @@ import (
 )
 
 type FilmService interface {
-	Create(film models.FilmInput) (*models.Film, error)
-	GetAll() ([]models.Film, error)
-	GetByID(id string) (*models.Film, error)
-	UpdateByID(id string, film models.FilmInput) error
-	DeleteByID(id string) error
+	Create(ctx context.Context, film models.FilmInput) (*models.Film, error)
+	GetAll(ctx context.Context) ([]*models.Film, error)
+	GetByID(ctx context.Context, id string) (*models.Film, error)
+	UpdateByID(ctx context.Context, id string, film models.FilmInput) error
+	DeleteByID(ctx context.Context, id string) error
 }
 
 type FilmController struct {
@@ -41,6 +42,7 @@ func NewFilmController(service FilmService) *FilmController {
 //	@Router       /films/ [post]
 func (c *FilmController) AddFilm(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	ctx := r.Context()
 
 	var film models.FilmInput
 	if err := json.NewDecoder(r.Body).Decode(&film); err != nil {
@@ -51,7 +53,7 @@ func (c *FilmController) AddFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createdFilm, err := c.service.Create(film)
+	createdFilm, err := c.service.Create(ctx, film)
 	if err != nil {
 		slog.Error(err.Error(),
 			"architecture level", "controller",
@@ -82,8 +84,9 @@ func (c *FilmController) AddFilm(w http.ResponseWriter, r *http.Request) {
 //	@Router       /films/ [get]
 func (c *FilmController) GetFilms(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	ctx := r.Context()
 
-	films, err := c.service.GetAll()
+	films, err := c.service.GetAll(ctx)
 	if err != nil {
 		slog.Error(err.Error(),
 			"architecture level", "controller",
@@ -115,10 +118,11 @@ func (c *FilmController) GetFilms(w http.ResponseWriter, r *http.Request) {
 //	@Router       /films/{id} [get]
 func (c *FilmController) GetFilmByID(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	ctx := r.Context()
 
 	id := r.PathValue("id")
 
-	film, err := c.service.GetByID(id)
+	film, err := c.service.GetByID(ctx, id)
 	if errors.Is(err, models.ErrFilmNotFound) {
 		slog.Error(models.ErrFilmNotFound.Error(),
 			"architecture level", "controller",
@@ -162,6 +166,7 @@ func (c *FilmController) GetFilmByID(w http.ResponseWriter, r *http.Request) {
 //		@Router       /films/{id} [patch]
 func (c *FilmController) UpdateFilmByID(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	ctx := r.Context()
 
 	id := r.PathValue("id")
 
@@ -174,7 +179,7 @@ func (c *FilmController) UpdateFilmByID(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	err := c.service.UpdateByID(id, film)
+	err := c.service.UpdateByID(ctx, id, film)
 	if errors.Is(err, models.ErrFilmNotFound) {
 		slog.Error(models.ErrFilmNotFound.Error(),
 			"architecture level", "controller",
@@ -208,10 +213,11 @@ func (c *FilmController) UpdateFilmByID(w http.ResponseWriter, r *http.Request) 
 //		@Router       /films/{id} [delete]
 func (c *FilmController) DeleteFilmByID(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	ctx := r.Context()
 
 	id := r.PathValue("id")
 
-	err := c.service.DeleteByID(id)
+	err := c.service.DeleteByID(ctx, id)
 	if errors.Is(err, models.ErrFilmNotFound) {
 		slog.Error(models.ErrFilmNotFound.Error(),
 			"architecture level", "controller",

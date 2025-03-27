@@ -30,15 +30,21 @@ go mod tidy
 Create a `.env` file in the project root with the following structure:
 
 ```env
-POSTGRES_DRIVER_NAME=postgres
-POSTGRES_DB_USER=<your_db_user>
-POSTGRES_DB_PASSWORD=<your_db_password>
 POSTGRES_DB_HOST=localhost
 POSTGRES_DB_PORT=5432
-POSTGRES_DB_NAME=<your_db_name>
+POSTGRES_DRIVER_NAME=postgres
+POSTGRES_DB_USER=postgres
+POSTGRES_DB_PASSWORD=postgres
+POSTGRES_DB_NAME=absoluteCinema
 POSTGRES_DB_SSLMODE=disable
-HOST=localhost
-PORT=8080
+
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=0
+
+HASH_SALT=salt
+JWT_SECRET=secret
 ```
 
 ## Usage

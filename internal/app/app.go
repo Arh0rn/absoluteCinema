@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"github.com/Arh0rn/absoluteCinema/pkg/configParser"
 	_ "github.com/lib/pq"
 	"log/slog"
@@ -33,13 +32,14 @@ type App struct {
 func InitApp() App {
 	var app App
 
-	logger := InitLogger()
-
+	log := InitLogger()
+	log.Info("Init App")
 	err := LoadEnv()
 	if err != nil {
 		slog.Error(err.Error())
 		panic(err)
 	}
+
 	conConf, err := InitConnectionConfig()
 	if err != nil {
 		slog.Error(err.Error())
@@ -50,13 +50,16 @@ func InitApp() App {
 		slog.Error(err.Error())
 		panic(err)
 	}
-
+	cache, err := InitCache()
+	if err != nil {
+		slog.Error(err.Error())
+		panic(err)
+	}
 	//User
 	hasher := InitHasher(os.Getenv("HASH_SALT"))
 	secret := []byte(os.Getenv("JWT_SECRET"))
 	attl := time.Duration(conConf.AccessTokenTTL) * time.Minute
 	rttl := time.Duration(conConf.RefreshTokenTTL) * time.Minute
-	slog.Info(fmt.Sprintf("%v", attl))
 	userRepository := InitUserRepository(db)
 	tokenRepository := InitTokenRepository(db)
 	userService := InitUserService(userRepository, tokenRepository, hasher, []byte(secret), attl, rttl)
@@ -64,7 +67,8 @@ func InitApp() App {
 
 	//Film
 	filmRepository := InitFilmRepository(db)
-	filmService := InitFilmService(filmRepository)
+	filmCache := InitFilmCache(cache)
+	filmService := InitFilmService(filmRepository, filmCache)
 	filmController := InitFilmController(filmService)
 
 	//Server
@@ -73,7 +77,7 @@ func InitApp() App {
 	srv := InitServer(conConf, router)
 
 	app = App{
-		Logger:    logger,
+		Logger:    log,
 		ConConfig: conConf,
 		Server:    srv,
 		DB:        db,

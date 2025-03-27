@@ -3,13 +3,16 @@ package app
 import (
 	"database/sql"
 	"fmt"
+	redisCache "github.com/Arh0rn/absoluteCinema/internal/cache/redis"
 	"github.com/Arh0rn/absoluteCinema/internal/controllers/restapi"
 	"github.com/Arh0rn/absoluteCinema/internal/controllers/restapi/controllers"
 	"github.com/Arh0rn/absoluteCinema/internal/repository/postgres"
 	"github.com/Arh0rn/absoluteCinema/internal/services"
 	"github.com/Arh0rn/absoluteCinema/pkg"
+	"github.com/Arh0rn/absoluteCinema/pkg/cache"
 	"github.com/Arh0rn/absoluteCinema/pkg/configParser"
 	"github.com/Arh0rn/absoluteCinema/pkg/database"
+	"github.com/redis/go-redis/v9"
 	"log/slog"
 	"net/http"
 	"os"
@@ -39,11 +42,19 @@ func InitConnectionConfig() (*configParser.ConnectionConfig, error) {
 }
 
 func InitDB() (*sql.DB, error) {
-	db, err := database.NewPostgresConnection()
+	db, err := database.NewPostgresConnection() //TODO: give data through env config in this function
 	if err != nil {
 		return nil, err
 	}
 	return db, nil
+}
+
+func InitCache() (*redis.Client, error) {
+	client, err := cache.NewRedisConnection() //TODO: give data through env config in this function
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
 }
 
 func InitHasher(hash string) *pkg.Hasher {
@@ -76,8 +87,12 @@ func InitFilmRepository(db *sql.DB) *postgres.FilmRepo {
 	return filmRepository
 }
 
-func InitFilmService(FilmRepository *postgres.FilmRepo) *services.FilmServ {
-	filmService := services.NewFilmServ(FilmRepository)
+func InitFilmCache(client *redis.Client) *redisCache.FilmCache {
+	FilmCache := redisCache.NewFilmCache(client)
+	return FilmCache
+}
+func InitFilmService(FilmRepository *postgres.FilmRepo, FilmCache *redisCache.FilmCache) *services.FilmServ {
+	filmService := services.NewFilmServ(FilmRepository, FilmCache)
 	return filmService
 }
 
@@ -92,10 +107,16 @@ func InitHandler(FilmController *controllers.FilmController, UserController *con
 }
 
 func InitServer(ConConf *configParser.ConnectionConfig, router http.Handler) *http.Server {
-
+	rt := time.Duration(ConConf.ReadTimeout) * time.Second
+	wt := time.Duration(ConConf.WriteTimeout) * time.Second
+	it := time.Duration(ConConf.IdleTimeout) * time.Second
+	addr := fmt.Sprintf(":" + strconv.Itoa(ConConf.Port))
 	srv := &http.Server{
-		Addr:    fmt.Sprintf(":" + strconv.Itoa(ConConf.Port)),
-		Handler: router,
+		Addr:         addr,
+		Handler:      router,
+		ReadTimeout:  rt,
+		WriteTimeout: wt,
+		IdleTimeout:  it,
 	}
 	return srv
 }

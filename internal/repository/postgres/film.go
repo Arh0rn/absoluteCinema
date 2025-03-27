@@ -3,7 +3,7 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
-	models2 "github.com/Arh0rn/absoluteCinema/pkg/models"
+	"github.com/Arh0rn/absoluteCinema/pkg/models"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -19,12 +19,12 @@ func NewFilmRepo(db *sql.DB) *FilmRepo {
 	}
 }
 
-func (r *FilmRepo) CreateFilm(film models2.Film) error {
+func (r *FilmRepo) Create(film *models.Film) error {
 	_, err := r.DB.Exec(
 		"INSERT INTO films (id, title, description, release_year, country, duration, budget, box_office) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
 		film.ID, film.Title, film.Description, film.ReleaseYear, film.Country, film.Duration, film.Budget, film.BoxOffice)
 	if err != nil {
-		slog.Error("CreateFilm error",
+		slog.Error("Create error",
 			"architecture level", "repository",
 			"error", err.Error(),
 		)
@@ -33,11 +33,11 @@ func (r *FilmRepo) CreateFilm(film models2.Film) error {
 	return nil
 }
 
-func (r *FilmRepo) GetFilms() ([]models2.Film, error) {
+func (r *FilmRepo) GetAll() ([]*models.Film, error) {
 
 	rows, err := r.DB.Query("SELECT * FROM films")
 	if err != nil {
-		slog.Error("GetFilms query error",
+		slog.Error("GetAll query error",
 			"architecture level", "repository",
 			"error", err.Error(),
 		)
@@ -45,9 +45,9 @@ func (r *FilmRepo) GetFilms() ([]models2.Film, error) {
 	}
 	defer rows.Close()
 
-	films := make([]models2.Film, 0)
+	films := make([]*models.Film, 0)
 	for rows.Next() {
-		var film models2.Film
+		var film models.Film
 		err = rows.Scan(
 			&film.ID,
 			&film.Title,
@@ -58,23 +58,23 @@ func (r *FilmRepo) GetFilms() ([]models2.Film, error) {
 			&film.Budget,
 			&film.BoxOffice)
 		if err != nil {
-			slog.Error("GetFilms scan error",
+			slog.Error("GetAll scan error",
 				"architecture level", "repository",
 				"error", err.Error(),
 			)
 
 			return nil, err
 		}
-		films = append(films, film)
+		films = append(films, &film)
 	}
 	return films, nil
 }
 
-func (r *FilmRepo) GetFilmByID(id string) (*models2.Film, error) {
-	var film models2.Film
+func (r *FilmRepo) GetByID(id string) (*models.Film, error) {
+	var film models.Film
 	err := r.DB.QueryRow("SELECT * FROM films WHERE id = $1", id).Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseYear, &film.Country, &film.Duration, &film.Budget, &film.BoxOffice)
 	if err != nil {
-		slog.Error("GetFilmByID error",
+		slog.Error("GetByID error",
 			"architecture level", "repository",
 			"error", err.Error(),
 		)
@@ -84,50 +84,50 @@ func (r *FilmRepo) GetFilmByID(id string) (*models2.Film, error) {
 	return &film, nil
 }
 
-func (r *FilmRepo) UpdateFilmByID(id string, film models2.FilmInput) error {
+func (r *FilmRepo) UpdateByID(id string, filmInput *models.FilmInput) error {
 	setValues := make([]string, 0)
 	args := make([]any, 0)
 	argID := 1
 
-	if film.Title != "" {
+	if filmInput.Title != "" {
 		setValues = append(setValues, "title = $"+strconv.Itoa(argID))
-		args = append(args, film.Title)
+		args = append(args, filmInput.Title)
 		argID++
 	}
 
-	if film.Description != "" {
+	if filmInput.Description != "" {
 		setValues = append(setValues, "description = $"+strconv.Itoa(argID))
-		args = append(args, film.Description)
+		args = append(args, filmInput.Description)
 		argID++
 	}
 
-	if film.ReleaseYear != 0 {
+	if filmInput.ReleaseYear != 0 {
 		setValues = append(setValues, "release_year = $"+strconv.Itoa(argID))
-		args = append(args, film.ReleaseYear)
+		args = append(args, filmInput.ReleaseYear)
 		argID++
 	}
 
-	if film.Country != "" {
+	if filmInput.Country != "" {
 		setValues = append(setValues, "country = $"+strconv.Itoa(argID))
-		args = append(args, film.Country)
+		args = append(args, filmInput.Country)
 		argID++
 	}
 
-	if film.Duration != 0 {
+	if filmInput.Duration != 0 {
 		setValues = append(setValues, "duration = $"+strconv.Itoa(argID))
-		args = append(args, film.Duration)
+		args = append(args, filmInput.Duration)
 		argID++
 	}
 
-	if film.Budget != 0 {
+	if filmInput.Budget != 0 {
 		setValues = append(setValues, "budget = $"+strconv.Itoa(argID))
-		args = append(args, film.Budget)
+		args = append(args, filmInput.Budget)
 		argID++
 	}
 
-	if film.BoxOffice != 0 {
+	if filmInput.BoxOffice != 0 {
 		setValues = append(setValues, "box_office = $"+strconv.Itoa(argID))
-		args = append(args, film.BoxOffice)
+		args = append(args, filmInput.BoxOffice)
 		argID++
 	}
 
@@ -138,7 +138,7 @@ func (r *FilmRepo) UpdateFilmByID(id string, film models2.FilmInput) error {
 
 	result, err := r.DB.Exec(query, args...)
 	if err != nil {
-		slog.Error("UpdateFilmByID error",
+		slog.Error("UpdateByID error",
 			"architecture level", "repository",
 			"query", query,
 			"args", args,
@@ -149,7 +149,7 @@ func (r *FilmRepo) UpdateFilmByID(id string, film models2.FilmInput) error {
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		slog.Error("UpdateFilmByID rows affected error",
+		slog.Error("UpdateByID rows affected error",
 			"architecture level", "repository",
 			"error", err.Error(),
 		)
@@ -160,16 +160,16 @@ func (r *FilmRepo) UpdateFilmByID(id string, film models2.FilmInput) error {
 		slog.Warn("No rows affected",
 			"architecture level", "repository",
 		)
-		return models2.ErrFilmNotFound
+		return models.ErrFilmNotFound
 	}
 
 	return nil
 }
 
-func (r *FilmRepo) DeleteFilmByID(id string) error {
+func (r *FilmRepo) DeleteByID(id string) error {
 	result, err := r.DB.Exec("DELETE FROM films WHERE id = $1", id)
 	if err != nil {
-		slog.Error("DeleteFilmByID error",
+		slog.Error("DeleteByID error",
 			"architecture level", "repository",
 			"error", err.Error(),
 		)
@@ -178,7 +178,7 @@ func (r *FilmRepo) DeleteFilmByID(id string) error {
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		slog.Error("DeleteFilmByID rows affected error",
+		slog.Error("DeleteByID rows affected error",
 			"architecture level", "repository",
 			"error", err.Error(),
 		)
@@ -189,7 +189,7 @@ func (r *FilmRepo) DeleteFilmByID(id string) error {
 		slog.Warn("No rows affected",
 			"architecture level", "repository",
 		)
-		return models2.ErrFilmNotFound
+		return models.ErrFilmNotFound
 	}
 
 	return nil
