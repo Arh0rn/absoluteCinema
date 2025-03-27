@@ -10,6 +10,7 @@ absoluteCinema is a CRUD web application for managing movie data, developed usin
 - **Swagger Documentation**: Automatically generated API documentation for clarity and ease of integration.
 
 ## Installation
+go version: **1.23**
 
 Clone the repository:
 
